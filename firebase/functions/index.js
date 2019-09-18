@@ -5,7 +5,8 @@ const FP_INTENT = 'finger_print';
 const appContexts = {
 login_sq: 'login_sq',
 finger_print: 'finger_print',
-logon: 'logon'
+logon: 'logon',
+transferpayee: ''
 };
 const fetch = require('node-fetch')
 const axios = require('axios')
@@ -114,6 +115,56 @@ const payeeList = {
   }
 }
 
+const serviceList = {
+  title: 'Services',
+  items: {
+    // Add the first item to the list
+    'Check Balance': {
+      synonyms: [
+        'Check my balance',
+        'check my account',
+        'how much money I have',
+      ],
+      title: 'Check Balance',
+      description: 'Information about your current balance.',
+      image: new Image({
+        url: 'https://thumbor.forbes.com/thumbor/960x0/https%3A%2F%2Fblogs-images.forbes.com%2Ftimmaurer%2Ffiles%2F2014%2F10%2Fmoneyandlife-e1414715276448.jpg',
+        alt: 'Image alternate text',
+      }),
+    },
+    // Add the second item to the list
+    'Transfer Money ': {
+      synonyms: [
+        'Transfer money',
+        'send money',
+        'give money',
+        'make a transfer'
+    ],
+      title: 'Transfer Money',
+      description: 'Make a transfer.' +
+        'the Google Assistant.',
+      image: new Image({
+        url: 'http://musicpress.gr-wp-uploads.s3-eu-central-1.amazonaws.com/wp-content/uploads/2019/05/29123555/transfer-arrows.jpg',
+        alt: 'Google Home',
+      }),
+    },
+    // Add the third item to the list
+    'Add Payee': {
+      synonyms: [
+        'add a new payee',
+        'add a people',
+        'Payee',
+      ],
+      title: 'Add new payee',
+      description: 'Add new payee to your contact list.',
+      image: new Image({
+        url: 'https://png.pngtree.com/svg/20160922/payee_1019638.png',
+        alt: 'Add a new payee',
+      }),
+    },
+  }
+}
+
 const acctmap = {
   'Advance Current': 'ACC005',
   'Advance Saving': 'ACC006'
@@ -187,9 +238,8 @@ app.intent('security_question - fingerprint', (conv, {fingerprint}) => {
   console.log('fqCount: ',conv.data.fpCount);
   if(conv.data.fpCount <= 3){
     if (fingerprint == 'fingerprint'){
-      	conv.ask('Perfect! How could I help you today?');
-      conv.contexts.set(appContexts.logon,2);	
-      
+      	conv.ask('Perfect! How could I help you today?');	
+        conv.ask(new List(serviceList));
     }
     else if(conv.data.fpCount == 3)
        conv.close("You tried many times. Please try again after 5 mins.");
@@ -199,6 +249,9 @@ app.intent('security_question - fingerprint', (conv, {fingerprint}) => {
     	}
   	}
 });
+app.intent('transfer.money', (conv, {service}, option)=>{
+  conv.ask('Do you want to transfer between your account or transfer to your payee?')
+})
 app.intent('transfer.money.payee', (conv)=>{
     conv.ask("Sure. Transfer from which account?")
     conv.ask(new List(afList))

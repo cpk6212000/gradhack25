@@ -8,13 +8,20 @@ finger_print: 'finger_print',
 logon: 'logon'
 };
 const fetch = require('node-fetch')
+const axios = require('axios')
+const url = 'https://apisandbox.openbankproject.com'
+
+
+
+
 // Import the Dialogflow module from the Actions on Google client library.
 const {
   dialogflow,
   BasicCard,
   List,
   Image,
-  DeepLink
+  DeepLink,
+  HtmlResponse
 } = require('actions-on-google');
 
 // Import the firebase-functions package for deployment.
@@ -106,8 +113,41 @@ const payeeList = {
     },
   }
 }
+
+const acctmap = {
+  'Advance Current': 'ACC005',
+  'Advance Saving': 'ACC006'
+
+}
+const payeemap = {
+  'Donald Trump' :  'ACC003', 
+  'Xin Jin Ping' : 'ACC006'
+}
+
 // Handle the Dialogflow intent named 'favorite color'.
 // The intent collects a parameter named 'color'.
+app.intent('test.openbankingapi', async(conv)=>{
+  const response = await axios({
+    method: 'post',
+    url: url+'/my/logins/direct',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'DirectLogin username=abc_user1,password=Qwerty@123,consumer_key=2swyvyynfzzbwkg0xjxiwfgiw4lyvmq4t5m5b3yi',
+      }
+  });
+  const token = response.data.token
+  conv.ask('Hello World!')
+  const response1 = await axios({
+    method: 'get',
+    url: url + '/obp/v3.1.0/banks/obp-bank-x-g/accounts/account_ids/private',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'DirectLogin token=' + token,
+      }
+  })
+  console.log(response1.data)
+})
+
 app.intent('start', (conv) => {
 	conv.ask("Could you share more about yourself to me? Please tell me your best friend's full name");
 	conv.data.sqCount = 0; 
@@ -148,7 +188,8 @@ app.intent('security_question - fingerprint', (conv, {fingerprint}) => {
   if(conv.data.fpCount <= 3){
     if (fingerprint == 'fingerprint'){
       	conv.ask('Perfect! How could I help you today?');
-    	conv.contexts.set(appContexts.logon,2);	
+      conv.contexts.set(appContexts.logon,2);	
+      
     }
     else if(conv.data.fpCount == 3)
        conv.close("You tried many times. Please try again after 5 mins.");
@@ -173,19 +214,63 @@ app.intent('transfer.money.payee.acfrom', (conv, {account_from}, option)=>{
   conv.ask("Who do you want to transfer to")
   conv.ask(new List(payeeList))
 })
-app.intent('transfer.money.payee.payeeto', (conv, option)=>{
+app.intent('transfer.money.payee.payeeto', (conv,{payee}, option)=>{
   console.log('option:', option, typeof(option))
   //console.log('account from:', account_from, typeof(account_from))
   conv.data.payee = option
   conv.ask("How much do you want to transfer?")
 })
-app.intent('transfer.money.btwaccount.full - yes', async(conv) => {
-  const response = await fetch('https://google.com')
-  const text = await response.text()
-  console.log('data:', text)
-  conv.ask('Hello World!')
-  conv.ask(text)
-});
+// intent for listening the amount the user want to transfer
+app.intent('transfer.money.payee.amount', (conv, {amount})=>{
+  console.log('amount:', amount, typeof(amount))
+  conv.data.amount = amount
+  conv.ask(`We are now transferring ${conv.data.amount.currency} ${conv.data.amount.amount} from ${conv.data.account_from} to ${conv.data.payee}. Do you confirm?`)
+})
+// intent for confirming the transfer request
+app.intent('transfer.money.payee.amount.yes', async(conv)=>{
+  //make an API request to transfer money
+  // account from ID
+  // account to ID
+  // currency 
+  // amount
+  conv.ask('Hello API')
+  const key = '2swyvyynfzzbwkg0xjxiwfgiw4lyvmq4t5m5b3yi'
+  var username = 'jin_ping'
+  var password = 'Qwerty@123'
+  const response = await axios({
+    method: 'post',
+    url: url+'/my/logins/direct',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'DirectLogin username='+username+',password='+password+',consumer_key='+key
+      }
+  });
+  const token = response.data.token
+  console.log('token:',token )
+  console.log('accpmap', acctmap[conv.data.account_from])
+  console.log('payeemap', payeemap[conv.data.payee])
+  console.log('amount', conv.data.amount.amount)
+  const response1 = await axios({
+    method: 'post',
+    url: url+'/obp/v3.1.0/banks/obp-bank-x-g/accounts/'+acctmap[conv.data.account_from]+'/owner/transaction-request-types/SANDBOX_TAN/transaction-requests',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'DirectLogin token=' + token,
+    },
+    data: {
+      "to":{    "bank_id":"obp-bank-x-g",    "account_id":payeemap[conv.data.payee]  },
+      "value":{    "currency":"EUR",    "amount":conv.data.amount.amount  },  
+      "description":"initial credit"
+    }
+  })
+  console.log('data:',response.data)
+  if(response1.data.status == 'COMPLETED'){
+    console.log('Success:')
+  }
+  else{
+    console.log('Transaction fail')
+  }
+})
 app.intent('test.deeplink', (conv) => {
   conv.ask("Hello, we are testing deep link")
   conv.ask(new DeepLink({
@@ -194,8 +279,22 @@ app.intent('test.deeplink', (conv) => {
     package: 'google.com',
     reason: 'handle this for you'}))
 });
-
-
+// intent for transfer request with full information
+app.intent('transfer.money.btwaccount.full - yes', async(conv) => {
+  const response = await axios.post('https://google.com')
+  const text = await response.text()
+  console.log('data:', text)
+  conv.ask('Hello World!')
+  conv.ask(text)
+});
+// intent for loading web app
+app.intent('actions.intent.PLAY_GAME', (conv) =>{
+  conv.ask('Hello Game')
+  conv.ask(new HtmlResponse({
+  url: 'https://google.com',
+}))
+});
+// fallback for sequrity question
 app.intent('security_question_fallback',(conv) => {
  // intent contains the name of the intent
  // you defined in the Intents area of Dialogflow
