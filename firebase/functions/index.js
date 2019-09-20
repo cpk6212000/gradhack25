@@ -281,7 +281,7 @@ app.intent('transfer.money.payee', (conv, {Transfer_Method}, option)=>{
     conv.ask("Sure. Transfer from which account?")
     conv.ask(new List(afList))
   })
-app.intent('transfer.money.btwaccount', (conv, {Transfer_Method}, option)=>{
+app.intent('transfer.money.btwaccount', (conv)=>{
     conv.ask("Sure. Transfer from which account?")
     conv.ask(new List(afList))
   })
