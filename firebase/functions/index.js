@@ -22,7 +22,9 @@ const {
   List,
   Image,
   DeepLink,
-  HtmlResponse
+  Suggestions,
+  LinkOutSuggestion,
+  Button
 } = require('actions-on-google');
 
 // Import the firebase-functions package for deployment.
@@ -35,13 +37,16 @@ const app = dialogflow({debug: true});
 const fpCard = {
     title: 'Verify Your Identity ',
     subtitle: "Confirm your fingerprint so Banking Sir can verify it's you",
-    text: 'Touch on the sensor',
     image: {
       url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/fingerprint_GIF.gif',
       accessibilityText: 'Fingerprint Authentication',
     },
+    buttons: new Button({
+      title: 'Touch here to verify your fingerprint.',
+      url: 'https://assistant.google.com/services/invoke/uid/00000016e2871140?intent=test.action&hl=en',
     display: 'WHITE',
-  }
+  })
+}
 // Account From List config
 const afList = {
   title: 'Account From',
@@ -141,8 +146,7 @@ const serviceList = {
         'make a transfer'
     ],
       title: 'Transfer Money',
-      description: 'Make a transfer.' +
-        'the Google Assistant.',
+      description: 'Make a transfer to an account or payee',
       image: new Image({
         url: 'http://musicpress.gr-wp-uploads.s3-eu-central-1.amazonaws.com/wp-content/uploads/2019/05/29123555/transfer-arrows.jpg',
         alt: 'Google Home',
@@ -161,6 +165,45 @@ const serviceList = {
         url: 'https://png.pngtree.com/svg/20160922/payee_1019638.png',
         alt: 'Add a new payee',
       }),
+    },
+  }
+}
+
+const ac_or_payee = {
+  items: {
+    // Add the first item to the list
+    'My Account': {
+      synonyms: [
+        'To my accounts',
+        'To my current account',
+        'saving account',
+        'Between my account',
+        'Credit card',
+        'My credit card'
+      ],
+      title: 'My Account',
+      description: 'Send money among your account, including to credit card.',
+      /**image: new Image({
+        url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/money.png',
+        alt: 'Current Account',
+      }),**/
+    },
+    // Add the second item to the list
+    'My Payee': {
+      synonyms: [
+        'To my payee',
+        'My friend',
+        'To my parent',
+        'A payee',
+        'Alex William',
+        'Donald Trump'
+    ],
+      title: 'My Payee',
+      description: 'To your registered payee, such as friends, family and colleagues',
+      /**image: new Image({
+        url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/piggy-bank.png',
+        alt: 'Saving Account',
+      }),**/
     },
   }
 }
@@ -212,10 +255,11 @@ app.intent('security_question', (conv, {full_name}) => {
   console.log('sqCount: ', conv.data.sqCount);
   if(conv.data.sqCount < 3){
     if (full_name == 'Alex William'){
-        conv.ask('Perfect! One more check, please verify your fingerprint using the scanner');
-        conv.ask(new BasicCard(fpCard))
-        setTimeout(()=>{conv.ask('Perfect! How could I help you today?')}, 1500);
-    	conv.contexts.set(appContexts.finger_print,1);	
+        conv.ask('Perfect! How could I help you today?');
+        conv.ask(new List(serviceList));
+        //conv.ask(new BasicCard(fpCard))
+        //setTimeout(()=>{conv.ask('Perfect! How could I help you today?')}, 1500);
+    	//conv.contexts.set(appContexts.finger_print,1);	
     }
   	else{
       conv.ask("Sorry! It wasn't quite right. Could you give his/her full name again?");
@@ -224,35 +268,17 @@ app.intent('security_question', (conv, {full_name}) => {
   	}
   else{
   	if(full_name == 'Alex William'){
-      conv.ask('Perfect! One more che ck, please verify your fingerprint using the scanner');
-      conv.ask(new BasicCard(fpCard))
-      setTimeout(()=>{conv.ask('Perfect! How could I help you today?')}, 1500);
-      conv.contexts.set(appContexts.finger_print,1);}
+      conv.ask('Perfect! How could I help you today?');
+      conv.ask(new List(serviceList));}
     else{
       conv.close("Sorry! You tried many times. Plese try again later");}
   }
 });
-
-app.intent('security_question - fingerprint', (conv, {fingerprint}) => { 
-  conv.data.fpCount++;
-  console.log('fqCount: ',conv.data.fpCount);
-  if(conv.data.fpCount <= 3){
-    if (fingerprint == 'fingerprint'){
-      	conv.ask('Perfect! How could I help you today?');	
-        conv.ask(new List(serviceList));
-    }
-    else if(conv.data.fpCount == 3)
-       conv.close("You tried many times. Please try again after 5 mins.");
-  	else{
-      conv.ask("Sorry! It wasn't quite right. Could you verify again?");
-      conv.contexts.set(appContexts.logon, 2);
-    	}
-  	}
-});
-app.intent('transfer.money', (conv, {service}, option)=>{
+app.intent('transfer.money', (conv,{services}, option)=>{
   conv.ask('Do you want to transfer between your account or transfer to your payee?')
+  conv.ask(new Suggestions(['My Account','My Payee']))
 })
-app.intent('transfer.money.payee', (conv)=>{
+app.intent('transfer.money.payee', (conv, {transfer_method}, option)=>{
     conv.ask("Sure. Transfer from which account?")
     conv.ask(new List(afList))
   })
@@ -278,51 +304,83 @@ app.intent('transfer.money.payee.amount', (conv, {amount})=>{
   console.log('amount:', amount, typeof(amount))
   conv.data.amount = amount
   conv.ask(`We are now transferring ${conv.data.amount.currency} ${conv.data.amount.amount} from ${conv.data.account_from} to ${conv.data.payee}. Do you confirm?`)
+  conv.ask(new Suggestions(['Yes','No']))
 })
 // intent for confirming the transfer request
 app.intent('transfer.money.payee.amount.yes', async(conv)=>{
-  //make an API request to transfer money
-  // account from ID
-  // account to ID
-  // currency 
-  // amount
-  conv.ask('Hello API')
-  const key = '2swyvyynfzzbwkg0xjxiwfgiw4lyvmq4t5m5b3yi'
-  var username = 'jin_ping'
-  var password = 'Qwerty@123'
-  const response = await axios({
-    method: 'post',
-    url: url+'/my/logins/direct',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'DirectLogin username='+username+',password='+password+',consumer_key='+key
+  conv.ask('Please confirm the transaction with you fingerprint.')
+  conv.ask(new BasicCard(fpCard))
+  // code for calling the Open Banking API
+})
+app.intent('transfer.money.payee.fingerprint', async(conv, {fingerprint}) => { 
+  conv.data.fpCount++;
+  console.log('fqCount: ',conv.data.fpCount);
+  if(conv.data.fpCount <= 3){
+    if (fingerprint == 'fingerprint'){
+      const key = '2swyvyynfzzbwkg0xjxiwfgiw4lyvmq4t5m5b3yi'
+      var username = 'jin_ping'
+      var password = 'Qwerty@123'
+      const response = await axios({
+        method: 'post',
+        url: url+'/my/logins/direct',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'DirectLogin username='+username+',password='+password+',consumer_key='+key
+          }
+      });
+      const token = response.data.token
+      console.log('token:',token )
+      console.log('accpmap', acctmap[conv.data.account_from])
+      console.log('payeemap', payeemap[conv.data.payee])
+      console.log('amount', conv.data.amount.amount)
+      const response1 = await axios({
+        method: 'post',
+        url: url+'/obp/v3.1.0/banks/obp-bank-x-g/accounts/'+acctmap[conv.data.account_from]+'/owner/transaction-request-types/SANDBOX_TAN/transaction-requests',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'DirectLogin token=' + token,
+        },
+        data: {
+          "to":{    "bank_id":"obp-bank-x-g",    "account_id":payeemap[conv.data.payee]  },
+          "value":{    "currency":"EUR",    "amount":conv.data.amount.amount  },  
+          "description":"initial credit"
+        }
+      })
+      console.log('data:',response.data)
+      if(response1.data.status == 'COMPLETED'){
+        console.log('Success:')
+        conv.ask(`Successfully transfered ${conv.data.amount.currency} ${conv.data.amount.amount} from ${conv.data.account_from} to ${conv.data.payee}.`)
+        conv.ask('The transaction reference number is A34525. How could I help you further ?')
+        conv.ask(new List(serviceList));
       }
-  });
-  const token = response.data.token
-  console.log('token:',token )
-  console.log('accpmap', acctmap[conv.data.account_from])
-  console.log('payeemap', payeemap[conv.data.payee])
-  console.log('amount', conv.data.amount.amount)
-  const response1 = await axios({
-    method: 'post',
-    url: url+'/obp/v3.1.0/banks/obp-bank-x-g/accounts/'+acctmap[conv.data.account_from]+'/owner/transaction-request-types/SANDBOX_TAN/transaction-requests',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'DirectLogin token=' + token,
-    },
-    data: {
-      "to":{    "bank_id":"obp-bank-x-g",    "account_id":payeemap[conv.data.payee]  },
-      "value":{    "currency":"EUR",    "amount":conv.data.amount.amount  },  
-      "description":"initial credit"
+      else{
+        conv.ask('Transaction failed.')
+        console.log('Transaction fail')
+      }
+      
+      	//conv.ask('Perfect! How could I help you today?');	
+        //conv.ask(new List(serviceList));
     }
-  })
-  console.log('data:',response.data)
-  if(response1.data.status == 'COMPLETED'){
-    console.log('Success:')
-  }
-  else{
-    console.log('Transaction fail')
-  }
+    else if(conv.data.fpCount == 3)
+       conv.close("You tried many times. Please try again after 5 mins.");
+  	else{
+      conv.ask("Sorry! It wasn't quite right. Could you verify again?");
+      conv.contexts.set(appContexts.logon, 2);
+    	}
+  	}
+});
+app.intent('test.action', (conv) =>{
+  conv.ask('Verifying your fingerprint...')
+  conv.ask(new BasicCard({
+    title: 'Verification Success ',
+    text: 'Successfully transfered' +conv.data.amount.currency + conv.data.amount.amount+'from' + conv.data.account_from+ 'to' + conv.data.payee+ '.',
+    image: {
+      url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/complete_534974.png',
+      accessibilityText: 'Verification Success',
+    }
+  }))
+  conv.ask('How could I help you further ?')
+  conv.ask(new List(serviceList));
 })
 app.intent('test.deeplink', (conv) => {
   conv.ask("Hello, we are testing deep link")
@@ -339,13 +397,6 @@ app.intent('transfer.money.btwaccount.full - yes', async(conv) => {
   console.log('data:', text)
   conv.ask('Hello World!')
   conv.ask(text)
-});
-// intent for loading web app
-app.intent('actions.intent.PLAY_GAME', (conv) =>{
-  conv.ask('Hello Game')
-  conv.ask(new HtmlResponse({
-  url: 'https://google.com',
-}))
 });
 // fallback for sequrity question
 app.intent('security_question_fallback',(conv) => {
