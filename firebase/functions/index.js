@@ -130,8 +130,8 @@ const serviceList = {
       title: 'Check Balance',
       description: 'Information about your current balance.',
       image: new Image({
-        url: 'https://thumbor.forbes.com/thumbor/960x0/https%3A%2F%2Fblogs-images.forbes.com%2Ftimmaurer%2Ffiles%2F2014%2F10%2Fmoneyandlife-e1414715276448.jpg',
-        alt: 'Image alternate text',
+        url: 'https://storage.cloud.google.com/gradhack-v1.appspot.com/balance.png?authuser=1',
+        alt: 'balance',
       }),
     },
     // Add the second item to the list
@@ -145,8 +145,8 @@ const serviceList = {
       title: 'Transfer Money',
       description: 'Make a transfer to an account or payee',
       image: new Image({
-        url: 'http://musicpress.gr-wp-uploads.s3-eu-central-1.amazonaws.com/wp-content/uploads/2019/05/29123555/transfer-arrows.jpg',
-        alt: 'Google Home',
+        url: 'https://storage.cloud.google.com/gradhack-v1.appspot.com/transfer_btw_account.png?authuser=1',
+        alt: 'transfer',
       }),
     },
     // Add the third item to the list
@@ -160,7 +160,7 @@ const serviceList = {
       description: 'Add new payee to your contact list.',
       image: new Image({
         url: 'https://png.pngtree.com/svg/20160922/payee_1019638.png',
-        alt: 'Add a new payee',
+        alt: 'payee',
       }),
     },
   }
@@ -180,10 +180,10 @@ const ac_or_payee = {
       ],
       title: 'My Account',
       description: 'Send money among your account, including to credit card.',
-      /**image: new Image({
+      image: new Image({
         url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/money.png',
         alt: 'Current Account',
-      }),**/
+      })
     },
     // Add the second item to the list
     'My Payee': {
@@ -197,13 +197,15 @@ const ac_or_payee = {
     ],
       title: 'My Payee',
       description: 'To your registered payee, such as friends, family and colleagues',
-      /**image: new Image({
+      image: new Image({
         url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/piggy-bank.png',
         alt: 'Saving Account',
-      }),**/
+      })
     },
   }
 }
+
+
 
 const acctmap = {
   'Advance Current': 'ACC005',
@@ -273,9 +275,9 @@ app.intent('security_question', (conv, {full_name}) => {
 });
 app.intent('transfer.money', (conv,{services}, option)=>{
   conv.ask('Do you want to transfer between your account or transfer to your payee?')
-  conv.ask(new Suggestions(['My Account','My Payee']))
+  conv.ask(new List(ac_or_payee))
 })
-app.intent('transfer.money.payee', (conv, {transfer_method}, option)=>{
+app.intent('transfer.money.payee', (conv, {Transfer_Method}, option)=>{
     conv.ask("Sure. Transfer from which account?")
     conv.ask(new List(afList))
   })
