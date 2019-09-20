@@ -394,14 +394,6 @@ app.intent('test.action', (conv, {money, currency, account, payee}) =>{
     }
   }))
 })
-app.intent('test.deeplink', (conv) => {
-  conv.ask("Hello, we are testing deep link")
-  conv.ask(new DeepLink({
-    destination: 'Google',
-    url: 'https://google.com',
-    package: 'google.com',
-    reason: 'handle this for you'}))
-});
 // intent for transfer request with full information
 app.intent('transfer.money.btwaccount.full - yes', async(conv) => {
   const response = await axios.post('https://google.com')
