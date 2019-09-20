@@ -1,14 +1,11 @@
 'use strict';
 
-const SQ_INTENT = 'security_question';
-const FP_INTENT = 'finger_print';
 const appContexts = {
 login_sq: 'login_sq',
 finger_print: 'finger_print',
 logon: 'logon',
 transferpayee: ''
 };
-const fetch = require('node-fetch')
 const axios = require('axios')
 const url = 'https://apisandbox.openbankproject.com'
 
@@ -34,7 +31,7 @@ const functions = require('firebase-functions');
 const app = dialogflow({debug: true});
 
 // Fingerprint Authentication Card config
-const fpCard = {
+/**const fpCard = {
     title: 'Verify Your Identity ',
     subtitle: "Confirm your fingerprint so Banking Sir can verify it's you",
     image: {
@@ -46,7 +43,7 @@ const fpCard = {
       url: 'https://assistant.google.com/services/invoke/uid/00000016e2871140?intent=test.action&hl=en',
     display: 'WHITE',
   })
-}
+}**/
 // Account From List config
 const afList = {
   title: 'Account From',
@@ -309,7 +306,19 @@ app.intent('transfer.money.payee.amount', (conv, {amount})=>{
 // intent for confirming the transfer request
 app.intent('transfer.money.payee.amount.yes', async(conv)=>{
   conv.ask('Please confirm the transaction with you fingerprint.')
-  conv.ask(new BasicCard(fpCard))
+  conv.ask(new BasicCard({
+    title: 'Verify Your Identity ',
+    subtitle: "Confirm your fingerprint so Banking Sir can verify it's you",
+    image: {
+      url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/fingerprint_GIF.gif',
+      accessibilityText: 'Fingerprint Authentication',
+    },
+    buttons: new Button({
+      title: 'Touch here to verify your fingerprint.',
+      url: 'https://assistant.google.com/services/invoke/uid/00000016e2871140?intent=test.action&param.money='+conv.data.amount.amount+'&param.currency='+conv.data.amount.currency+'&param.account='+conv.data.account_from+'&param.payee='+conv.data.payee,
+    display: 'WHITE',
+  })
+}))
   // code for calling the Open Banking API
 })
 app.intent('transfer.money.payee.fingerprint', async(conv, {fingerprint}) => { 
@@ -349,7 +358,7 @@ app.intent('transfer.money.payee.fingerprint', async(conv, {fingerprint}) => {
       console.log('data:',response.data)
       if(response1.data.status == 'COMPLETED'){
         console.log('Success:')
-        conv.ask(`Successfully transfered ${conv.data.amount.currency} ${conv.data.amount.amount} from ${conv.data.account_from} to ${conv.data.payee}.`)
+
         conv.ask('The transaction reference number is A34525. How could I help you further ?')
         conv.ask(new List(serviceList));
       }
@@ -369,18 +378,21 @@ app.intent('transfer.money.payee.fingerprint', async(conv, {fingerprint}) => {
     	}
   	}
 });
-app.intent('test.action', (conv) =>{
-  conv.ask('Verifying your fingerprint...')
+app.intent('test.action', (conv, {money, currency, account, payee}) =>{
+  console.log('money:',money, typeof(money))
+  console.log('money:',currency, typeof(currency))
+  const response = `Transfered **${currency} ${money}**  from **${account}** to **${payee}**.`
+  conv.ask('Verifying the fingerprint....')
+  conv.ask(`Successfully transfered ${currency} ${money}  from ${account} to ${payee}.`)
   conv.ask(new BasicCard({
     title: 'Verification Success ',
-    text: 'Successfully transfered' +conv.data.amount.currency + conv.data.amount.amount+'from' + conv.data.account_from+ 'to' + conv.data.payee+ '.',
+    subtitle: 'Reference Number: A12345',
+    text: response,
     image: {
       url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/complete_534974.png',
       accessibilityText: 'Verification Success',
     }
   }))
-  conv.ask('How could I help you further ?')
-  conv.ask(new List(serviceList));
 })
 app.intent('test.deeplink', (conv) => {
   conv.ask("Hello, we are testing deep link")
