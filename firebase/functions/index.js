@@ -4,7 +4,11 @@ const appContexts = {
 login_sq: 'login_sq',
 finger_print: 'finger_print',
 logon: 'logon',
-transferpayee: ''
+firstpin: 'security_question-followup',
+secondpin: 'security_question1stpin-followup',
+choosing_service: 'choosing_service',
+transfer: 'transfer',
+checkbalance: 'check-balance'
 };
 const axios = require('axios')
 const url = 'https://apisandbox.openbankproject.com'
@@ -21,7 +25,9 @@ const {
   DeepLink,
   Suggestions,
   LinkOutSuggestion,
-  Button
+  Button,
+  OpenUrlAction,
+  Carousel
 } = require('actions-on-google');
 
 // Import the firebase-functions package for deployment.
@@ -29,6 +35,8 @@ const functions = require('firebase-functions');
 
 // Instantiate the Dialogflow client.
 const app = dialogflow({debug: true});
+
+var acobject;
 
 // Fingerprint Authentication Card config
 /**const fpCard = {
@@ -78,38 +86,85 @@ const afList = {
     },
   }
 }
+// Account list with credit card
+const afVisaList = {
+  title: 'Account',
+  items: {
+    // Add the first item to the list
+    'Advance Current': {
+      synonyms: [
+        'Current',
+        'Current Account',
+        'From my current account'
+      ],
+      title: 'Advance Current',
+      description: '480-123456-789',
+      image: new Image({
+        url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/money.png',
+        alt: 'Current Account',
+      }),
+    },
+    // Add the second item to the list
+    'Advance Saving': {
+      synonyms: [
+        'Saving',
+        'Saving Account',
+        'From my saving account'
+    ],
+      title: 'Advance Saving',
+      description: '480-987654-321',
+      image: new Image({
+        url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/piggy-bank.png',
+        alt: 'Saving Account',
+      }),
+    },
+    'Visa Signature Card': {
+      synonyms: [
+        'Visa Signature',
+        'Signature Card',
+        'Visa credit card',
+        'credit card'
+    ],
+      title: 'Visa Signature Card',
+      description: '480-733456-291',
+      image: new Image({
+        url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/icons8-visa-160.png',
+        alt: 'Visa Signature Card',
+      }),
+    },
+  }
+}
 // Payee list config
 const payeeList = {
   title: 'Existing Payee',
   items: {
     // Add the first item to the list
-    'Donald Trump': {
+    'Tejasv Chak': {
       synonyms: [
-        'Trump',
-        'Donald',
+        'Tejas',
+        'Chak',
+        'Tejasv'
       ],
-      title: 'Donald Trump',
-      description: '123-123456-789',
+      title: 'Tejasv Chak',
+      description: '333-2223457-789',
       image: new Image({
-        url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/donald_trump.jpeg',
-        alt: 'Donald Trump',
+        url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/tejasv.jpeg',
+        alt: 'Tejasv Chak',
         height: 300,
         width: 300
       }),
     },
     // Add the second item to the list
-    'Xin Jin Ping': {
+    'Jayden Chau': {
       synonyms: [
-        'Xin',
-        'Ping',
-        'Jin',
-        'Jin Ping'
+        'Jayden',
+        'Chau',
     ],
-      title: 'Xin Jin Ping',
+      title: 'Jayden Chau',
       description: '333-987654-321',
       image: new Image({
-        url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/download.jpeg',
-        alt: 'Xin Jin Ping',
+        url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/Professional%20Headshot.jpg',
+        alt: 'Jayden Chau',
         height: 300,
         width: 300
       }),
@@ -121,7 +176,7 @@ const serviceList = {
   title: 'Services',
   items: {
     // Add the first item to the list
-    'Check Balance': {
+    'Check_Balance': {
       synonyms: [
         'Check my balance',
         'check my account',
@@ -130,12 +185,12 @@ const serviceList = {
       title: 'Check Balance',
       description: 'Information about your current balance.',
       image: new Image({
-        url: 'https://storage.cloud.google.com/gradhack-v1.appspot.com/balance.png?authuser=1',
+        url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/icons8-dollar-account-128.png',
         alt: 'balance',
       }),
     },
     // Add the second item to the list
-    'Transfer Money ': {
+    'Transfer_Money': {
       synonyms: [
         'Transfer money',
         'send money',
@@ -145,12 +200,12 @@ const serviceList = {
       title: 'Transfer Money',
       description: 'Make a transfer to an account or payee',
       image: new Image({
-        url: 'https://storage.cloud.google.com/gradhack-v1.appspot.com/transfer_btw_account.png?authuser=1',
+        url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/icons8-money-transfer-96.png',
         alt: 'transfer',
       }),
     },
     // Add the third item to the list
-    'Add Payee': {
+    'Add_Payee': {
       synonyms: [
         'add a new payee',
         'add a people',
@@ -181,7 +236,7 @@ const ac_or_payee = {
       title: 'My Account',
       description: 'Send money among your account, including to credit card.',
       image: new Image({
-        url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/money.png',
+        url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/transfer_btwaccount.png',
         alt: 'Current Account',
       })
     },
@@ -198,13 +253,67 @@ const ac_or_payee = {
       title: 'My Payee',
       description: 'To your registered payee, such as friends, family and colleagues',
       image: new Image({
-        url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/piggy-bank.png',
+        url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/transfer_to_payee.png',
         alt: 'Saving Account',
       })
     },
   }
 }
 
+/**
+const amountconfig = {
+  title: 'Transfer Amount',
+  items: {
+    '5 GBP': {
+      synonyms: [
+        'Five pound',
+        'Five',
+      ],
+      title: 5 + 'GBP',
+      image: new Image({
+        url: 'https://storage.googleapis.com/actionsresources/logo_assistant_2x_64dp.png',
+        alt: 'Google Pixel',
+      }),
+    },
+    // Add the first item to the carousel
+    '10 GBP': {
+      synonyms: [
+        'Ten pound',
+        'Ten',
+      ],
+      title: 10 + 'GBP',
+      image: new Image({
+        url: 'https://storage.googleapis.com/actionsresources/logo_assistant_2x_64dp.png',
+        alt: 'Image alternate text',
+      }),
+    },
+    // Add the second item to the carousel
+    '20 GBP': {
+      synonyms: [
+        'Twenty pound',
+        'Twenty',
+    ],
+      title: 20 + 'GBP',
+      image: new Image({
+        url: 'https://storage.googleapis.com/actionsresources/logo_assistant_2x_64dp.png',
+        alt: 'Google Home',
+      }),
+    },
+    // Add the third item to the carousel
+    '50 GBP': {
+      synonyms: [
+        'Fifty pound',
+        'Fifty',
+      ],
+      title: 50 + 'GBP',
+      image: new Image({
+        url: 'https://storage.googleapis.com/actionsresources/logo_assistant_2x_64dp.png',
+        alt: 'Google Pixel',
+      }),
+    },
+  },
+}
+**/
 
 
 const acctmap = {
@@ -216,6 +325,7 @@ const payeemap = {
   'Donald Trump' :  'ACC003', 
   'Xin Jin Ping' : 'ACC006'
 }
+
 
 // Handle the Dialogflow intent named 'favorite color'.
 // The intent collects a parameter named 'color'.
@@ -241,6 +351,7 @@ app.intent('test.openbankingapi', async(conv)=>{
   console.log(response1.data)
 })
 
+/**----------------------------------------------------------------------------- */
 app.intent('start', (conv) => {
 	conv.ask("Could you share more about yourself to me? Please tell me your best friend's full name");
 	conv.data.sqCount = 0; 
@@ -248,14 +359,52 @@ app.intent('start', (conv) => {
   conv.data.account_from = '';
   conv.data.payee = '';
   conv.data.amount = 0;
+  conv.data.data = null;
+  /**
+  const nums = [1,2,3,4,5]
+  var temp = Math.floor(Math.random()*5)
+  conv.data.firstpin = nums[temp]
+  nums.splice(temp,1)
+  temp = Math.floor(Math.random()*4)
+  conv.data.secondpin = nums[temp]
+  console.log('first digit:', conv.data.firstpin)
+  console.log('second digit: ', conv.data.secondpin)
+  **/
 });
-app.intent('security_question', (conv, {full_name}) => { 
+app.intent('security_question', async(conv, {full_name}) => { 
   conv.data.sqCount++;
   console.log('sqCount: ', conv.data.sqCount);
   if(conv.data.sqCount < 3){
     if (full_name == 'Alex William'){
-        conv.ask('Perfect! How could I help you today?');
-        conv.ask(new List(serviceList));
+      const key = '2swyvyynfzzbwkg0xjxiwfgiw4lyvmq4t5m5b3yi'
+      var username = 'jin_ping'
+      var password = 'Qwerty@123'
+      const response = await axios({
+        method: 'post',
+        url: url+'/my/logins/direct',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'DirectLogin username='+username+',password='+password+',consumer_key='+key
+          }
+      });
+      const token = response.data.token
+      console.log('token:',token )
+      const required_data = await axios({
+        method: 'get',
+        url: url+'/obp/v3.1.0/banks/obp-bank-x-g/balances',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'DirectLogin token=' + token,
+        }
+      })
+      conv.data.data = required_data.data
+      console.log('status:', required_data.data.status)
+      console.log('required_data:', required_data.data)
+      conv.ask('Perfect! How could I help you today?');
+      conv.ask(new List(serviceList));
+      conv.contexts.set(appContexts.logon, 9);
+      conv.contexts.set(appContexts.choosing_service,1)
+
         //conv.ask(new BasicCard(fpCard))
         //setTimeout(()=>{conv.ask('Perfect! How could I help you today?')}, 1500);
     	//conv.contexts.set(appContexts.finger_print,1);	
@@ -273,10 +422,84 @@ app.intent('security_question', (conv, {full_name}) => {
       conv.close("Sorry! You tried many times. Plese try again later");}
   }
 });
-app.intent('transfer.money', (conv,{services}, option)=>{
-  conv.ask('Do you want to transfer between your account or transfer to your payee?')
-  conv.ask(new List(ac_or_payee))
+/**
+app.intent('security_question.1stpin', (conv, {firstfood})=>{
+  if (firstfood == 'Sushi'){
+    conv.ask(`Please tell me your ${conv.data.secondpin}${randmap[conv.data.secondpin]} favorite food.`)
+    conv.contexts.set(appContexts.secondpin,1)
+  }
+  else {
+    conv.ask(`Sorry, it was quite right. Please tell me your ${conv.data.firstpin}${randmap[conv.data.firstpin]} favorite food. For example, Chapati.`)
+    conv.contexts.set(appContexts.firstpin,1)
+  }
 })
+app.intent('security_question.2ndpin', (conv, {secondfood})=>{
+  if (secondfood == 'Chicken Biryani'){
+  }
+  else {
+  conv.ask(`Sorry, it wasn't quite right. Please tell me your ${conv.data.secondpin}${randmap[conv.data.secondpin]} favourite food. For example, Chapati.`)
+  conv.contexts.set(appContexts.secondpin, 1)
+}
+})
+**/
+app.intent('service.chose', (conv,{services}, option)=>{
+  console.log('Option:', option, typeof(option))
+  console.log('Services:', services, typeof(services))
+  const SELECTED_ITEM_RESPONSES = {
+    'Check_Balance':'Which account do you want to check?',
+    'Transfer_Money': 'Do you want to transfer between your account or transfer to your payee?',
+    'Add_Payee': 'This service is not available now. Please try again later.'
+  }
+  const listconfig = {
+    'Check_Balance': new List(afVisaList),
+    'Transfer_Money': new List(ac_or_payee)
+  }
+  const contexts = {
+    'Check_Balance': appContexts.checkbalance,
+    'Transfer_Money': appContexts.transfer
+  }
+  const lifespan = {
+    'Check_Balance':3,
+    'Transfer_Money':1
+  }
+  console.log(SELECTED_ITEM_RESPONSES[option])
+  console.log(listconfig[option])
+  /**
+  switch(option){
+    case 'Check Balance':
+        conv.ask('Which account do you want to check?')
+        conv.ask(new List(afVisaList))
+        conv.contexts.set(appContexts.checkbalance,3)
+        break;
+    case 'Transfer Money':
+        conv.ask('Do you want to transfer between your account or transfer to your payee?')
+        conv.ask(new List(ac_or_payee))
+        conv.contexts.set(appContexts.transfer,5)
+        break;
+    case 'Add Payee':
+        conv.ask('This service is not available now. Please try again later.')
+      break;
+    default:
+      conv.ask('I could help you in checking account balance, transferring, or adding new payee. Which one do you want?')
+      }**/
+    conv.ask(SELECTED_ITEM_RESPONSES[option])
+    conv.ask(listconfig[option]) 
+    conv.contexts.set(contexts[option],lifespan[option])
+})
+app.intent('check.balance.acfrom', (conv,{account}, option)=>{
+  console.log(conv.data.data.accounts)
+  var ac;
+  for (ac of conv.data.data.accounts){
+    console.log('ac: ', ac)
+    if(ac.id == acctmap[option]){
+      acobject = ac
+    }
+  }
+  const amount = acobject.balance.amount
+  const currency = acobject.balance.currency
+  conv.ask(`You account balance is ${currency} ${amount}`)
+})
+
 app.intent('transfer.money.payee', (conv, {Transfer_Method}, option)=>{
     conv.ask("Sure. Transfer from which account?")
     conv.ask(new List(afList))
@@ -297,9 +520,12 @@ app.intent('transfer.money.payee.payeeto', (conv,{payee}, option)=>{
   //console.log('account from:', account_from, typeof(account_from))
   conv.data.payee = option
   conv.ask("How much do you want to transfer?")
+  conv.ask(new Suggestions(['5 GBP', '10 GBP', '20 GBP', '50 GBP']))
+  //conv.ask(new Carousel(amountconfig))
 })
 // intent for listening the amount the user want to transfer
-app.intent('transfer.money.payee.amount', (conv, {amount})=>{
+app.intent('transfer.money.payee.amount', (conv, {amount},option)=>{
+  console.log('option: ', option, typeof(option))
   console.log('amount:', amount, typeof(amount))
   conv.data.amount = amount
   conv.ask(`We are now transferring ${conv.data.amount.currency} ${conv.data.amount.amount} from ${conv.data.account_from} to ${conv.data.payee}. Do you confirm?`)
@@ -307,14 +533,10 @@ app.intent('transfer.money.payee.amount', (conv, {amount})=>{
 })
 // intent for confirming the transfer request
 app.intent('transfer.money.payee.amount.yes', async(conv)=>{
-  conv.ask('Please confirm the transaction with you fingerprint.')
+  conv.ask('Now,confirm the transaction with you fingerprint. Please touch the fingerprint scanner first, and then touch the middle of the screen.')
   conv.ask(new BasicCard({
     title: 'Verify Your Identity ',
     subtitle: "Confirm your fingerprint so Banking Sir can verify it's you",
-    image: {
-      url: 'https://storage.googleapis.com/gradhack-v1.appspot.com/fingerprint_GIF.gif',
-      accessibilityText: 'Fingerprint Authentication',
-    },
     buttons: new Button({
       title: 'Touch here to verify your fingerprint.',
       url: 'https://assistant.google.com/services/invoke/uid/00000016e2871140?intent=test.action&param.money='+conv.data.amount.amount+'&param.currency='+conv.data.amount.currency+'&param.account='+conv.data.account_from+'&param.payee='+conv.data.payee,
@@ -409,7 +631,7 @@ app.intent('security_question_fallback',(conv) => {
  // intent contains the name of the intent
  // you defined in the Intents area of Dialogflow
      conv.data.sqCount++;
-  if(conv.data.spCount < 3){
+  if(conv.data.sqCount < 3){
     conv.ask("Sorry, I could not get that. Please provide me your best friend's full name again.");
     conv.contexts.set(appContexts.login_sq, 1)
   }
